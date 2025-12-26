@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Agent Multimodal - Générateur Intelligent</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+
+    h1 {
+      color: #667eea;
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 1.1rem;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      color: #333;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+    }
+
+    input[type="text"], textarea, select {
+      width: 100%;
+      padding: 14px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 1rem;
+      transition: all 0.3s;
+      font-family: inherit;
+    }
+
+    input[type="text"]:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    .btn {
+      padding: 14px 28px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      width: 100%;
+      justify-content: center;
+      font-size: 1.1rem;
+      padding: 16px;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    .tab {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      color: #666;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s;
+    }
+
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .result-box {
+      background: #f7fafc;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 20px;
+      display: none;
+      border-left: 4px solid #667eea;
+    }
+
+    .result-box.show {
+      display: block;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(102, 126, 234, 0.2);
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 10px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .response-text {
+      color: #2d3748;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: 1rem;
+    }
+
+    .media-container {
+      margin-top: 15px;
+    }
+
+    img, video {
+      max-width: 100%;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      display: block;
+    }
+
+    video {
+      margin-top: 10px;
+    }
+
+    .video-params {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+
+    .status-processing {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-completed {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .url-display {
+      margin-top: 15px;
+      padding: 12px;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .url-text {
+      flex: 1;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      color: #4a5568;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .copy-btn {
+      padding: 8px 16px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .copy-btn:hover {
+      background: #5568d3;
+    }
+
+    .footer {
+      text-align: center;
+      color: white;
+      padding: 20px;
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+
+    .polling-info {
+      background: #fff7ed;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 10px;
+      font-size: 0.9rem;
+      color: #9a3412;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 10px;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+
+      .header {
+        padding: 30px 20px;
+      }
+
+      .card {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🤖 AI Agent Multimodal</h1>
+      <p class="subtitle">Générez du texte, des images et des vidéos avec l'IA</p>
+    </div>
+
+    <div class="card">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('text', event)">💬 Texte</button>
+        <button class="tab" onclick="switchTab('image', event)">🖼️ Image</button>
+        <button class="tab" onclick="switchTab('video', event)">🎬 Vidéo</button>
+      </div>
+
+      <!-- Onglet Texte -->
+      <div id="text-tab" class="tab-content active">
+        <div class="input-group">
+          <label for="text-input">Votre question ou demande</label>
+          <textarea id="text-input" placeholder="Posez une question ou demandez quelque chose..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="generateText()">
+          <span>✨</span> Générer
+        </button>
+
+        <div id="text-result" class="result-box">
+          <div class="response-text" id="text-response"></div>
+        </div>
+      </div>
+
+      <!-- Onglet Image -->
+      <div id="image-tab" class="tab-content">
+        <div class="input-group">
+          <label for="image-input">Description de l'image</label>
+          <textarea id="image-input" placeholder="Décrivez l'image que vous voulez générer..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="generateImage()">
+          <span>🎨</span> Générer l'image
+        </button>
+
+        <div id="image-result" class="result-box">
+          <div id="image-response"></div>
+          <div class="media-container" id="image-container"></div>
+        </div>
+      </div>
+
+      <!-- Onglet Vidéo -->
+      <div id="video-tab" class="tab-content">
+        <div class="input-group">
+          <label for="video-input">Description de la vidéo</label>
+          <textarea id="video-input" placeholder="Décrivez la vidéo que vous voulez générer..."></textarea>
+        </div>
+
+        <div class="video-params">
+          <div class="input-group">
+            <label for="video-duration">⏱️ Durée</label>
+            <select id="video-duration">
+              <option value="3">3 secondes</option>
+              <option value="5" selected>5 secondes</option>
+              <option value="10">10 secondes</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label for="video-ratio">📐 Format</label>
+            <select id="video-ratio">
+              <option value="16:9" selected>16:9 (Paysage)</option>
+              <option value="9:16">9:16 (Portrait)</option>
+              <option value="1:1">1:1 (Carré)</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label for="video-fps">🎨 FPS</label>
+            <select id="video-fps">
+              <option value="6">6 FPS</option>
+              <option value="12">12 FPS</option>
+              <option value="24" selected>24 FPS</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="generateVideo()">
+          <span>🎬</span> Générer la vidéo
+        </button>
+
+        <div id="video-result" class="result-box">
+          <div id="video-response"></div>
+          <div class="media-container" id="video-container"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Propulsé par N8N • DALL-E • Replicate Video
+    </div>
+  </div>
+
+  <script>
+    // Configuration
+    const WEBHOOK_URL = 'https://n8n.srv766650.hstgr.cloud/webhook/ai-agent-fiable';
+
+    let videoPollingInterval = null;
+    let videoPollingAttempts = 0;
+    const MAX_POLLING_ATTEMPTS = 30;
+
+    // Gestion des onglets
+    function switchTab(tab, event) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+      event.target.classList.add('active');
+      document.getElementById(tab + '-tab').classList.add('active');
+    }
+
+    // Afficher le loading
+    function showLoading(resultId) {
+      const resultBox = document.getElementById(resultId);
+      resultBox.innerHTML = `
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Génération en cours...</p>
+        </div>
+      `;
+      resultBox.classList.add('show');
+    }
+
+    // Génération de texte
+    async function generateText() {
+      const input = document.getElementById('text-input').value.trim();
+      if (!input) {
+        alert('Veuillez entrer une question ou une demande');
+        return;
+      }
+
+      const btn = event.target;
+      btn.disabled = true;
+      showLoading('text-result');
+
+      try {
+        const response = await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: `\\text ${input}`,
+            type: 'text'
+          })
+        });
+
+        const data = await response.json();
+        const result = Array.isArray(data) ? data[0] : data;
+
+        const responseText = result.content || result.response || 'Réponse non disponible';
+        document.getElementById('text-response').textContent = responseText;
+
+      } catch (error) {
+        document.getElementById('text-response').textContent = 'Erreur: ' + error.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Génération d'image
+    async function generateImage() {
+      const input = document.getElementById('image-input').value.trim();
+      if (!input) {
+        alert('Veuillez décrire l\'image à générer');
+        return;
+      }
+
+      const btn = event.target;
+      btn.disabled = true;
+      showLoading('image-result');
+
+      try {
+        const response = await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: `\\image ${input}`,
+            type: 'text'
+          })
+        });
+
+        const data = await response.json();
+        const result = Array.isArray(data) ? data[0] : data;
+
+        const imageUrl = result.image_url || result.imageUrl || result.metadata?.imageUrl;
+        const responseText = result.content || result.response || 'Image générée avec succès';
+
+        document.getElementById('image-response').innerHTML = `
+          <div class="response-text">${responseText}</div>
+          <span class="status-badge status-completed">✓ Terminé</span>
+        `;
+
+        if (imageUrl) {
+          document.getElementById('image-container').innerHTML = `
+            <img src="${imageUrl}" alt="Image générée" onload="this.style.opacity=1" style="opacity:0; transition: opacity 0.5s;">
+            <div class="url-display">
+              <span class="url-text">${imageUrl}</span>
+              <button class="copy-btn" onclick="copyToClipboard('${imageUrl}')">📋 Copier</button>
+            </div>
+          `;
+        }
+
+      } catch (error) {
+        document.getElementById('image-response').textContent = 'Erreur: ' + error.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Génération de vidéo
+    async function generateVideo() {
+      const input = document.getElementById('video-input').value.trim();
+      if (!input) {
+        alert('Veuillez décrire la vidéo à générer');
+        return;
+      }
+
+      const duration = document.getElementById('video-duration').value;
+      const ratio = document.getElementById('video-ratio').value;
+      const fps = document.getElementById('video-fps').value;
+
+      const btn = event.target;
+      btn.disabled = true;
+      showLoading('video-result');
+
+      try {
+        const response = await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: `\\video ${input}`,
+            type: 'text',
+            videoParams: {
+              duration: parseInt(duration),
+              aspectRatio: ratio,
+              fps: parseInt(fps)
+            }
+          })
+        });
+
+        const data = await response.json();
+        const result = Array.isArray(data) ? data[0] : data;
+
+        handleVideoResponse(result, input);
+
+      } catch (error) {
+        document.getElementById('video-response').textContent = 'Erreur: ' + error.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Gérer la réponse vidéo
+    function handleVideoResponse(result, prompt) {
+      const videoUrl = result.video_url || result.videoUrl || result.url ||
+                       result.content?.url || result.metadata?.videoUrl;
+      const status = result.content?.status || result.status ||
+                    (videoUrl ? 'completed' : 'processing');
+      const message = result.content?.message || result.response || result.content || '';
+      const instructions = result.content?.instructions || '';
+
+      if (videoUrl && status === 'completed') {
+        displayVideo(videoUrl, message);
+      } else if (status === 'processing') {
+        document.getElementById('video-response').innerHTML = `
+          <div class="response-text">${message}</div>
+          ${instructions ? `<div class="polling-info">💡 ${instructions}</div>` : ''}
+          <span class="status-badge status-processing">⏳ Génération en cours...</span>
+        `;
+        startVideoPolling(prompt);
+      } else {
+        document.getElementById('video-response').innerHTML = `
+          <div class="response-text">${message || 'Statut inconnu'}</div>
+        `;
+      }
+    }
+
+    // Afficher la vidéo
+    function displayVideo(videoUrl, message) {
+      stopVideoPolling();
+
+      document.getElementById('video-response').innerHTML = `
+        <div class="response-text">${message || 'Vidéo générée avec succès'}</div>
+        <span class="status-badge status-completed">✓ Terminé</span>
+      `;
+
+      document.getElementById('video-container').innerHTML = `
+        <video controls autoplay style="opacity:0; transition: opacity 0.5s;" onloadeddata="this.style.opacity=1">
+          <source src="${videoUrl}" type="video/mp4">
+          Votre navigateur ne supporte pas la lecture vidéo.
+        </video>
+        <div class="url-display">
+          <span class="url-text">${videoUrl}</span>
+          <button class="copy-btn" onclick="copyToClipboard('${videoUrl}')">📋 Copier</button>
+        </div>
+      `;
+    }
+
+    // Polling pour la vidéo
+    function startVideoPolling(prompt) {
+      stopVideoPolling();
+      videoPollingAttempts = 0;
+
+      videoPollingInterval = setInterval(async () => {
+        videoPollingAttempts++;
+
+        if (videoPollingAttempts > MAX_POLLING_ATTEMPTS) {
+          stopVideoPolling();
+          document.getElementById('video-response').innerHTML += `
+            <div class="polling-info" style="background: #fee2e2; color: #991b1b;">
+              ❌ Délai d'attente dépassé. La vidéo peut encore être en cours de génération.
+            </div>
+          `;
+          return;
+        }
+
+        try {
+          const response = await fetch(WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: `\\video ${prompt}`,
+              type: 'text',
+              checkStatus: true
+            })
+          });
+
+          const data = await response.json();
+          const result = Array.isArray(data) ? data[0] : data;
+
+          const videoUrl = result.video_url || result.videoUrl || result.url ||
+                           result.content?.url || result.metadata?.videoUrl;
+          const status = result.content?.status || result.status ||
+                        (videoUrl ? 'completed' : 'processing');
+
+          if (videoUrl && status === 'completed') {
+            const message = result.content?.message || result.response || 'Vidéo générée avec succès';
+            displayVideo(videoUrl, message);
+          } else {
+            document.querySelector('#video-response .status-badge').textContent =
+              `⏳ Vérification ${videoPollingAttempts}/${MAX_POLLING_ATTEMPTS}`;
+          }
+
+        } catch (error) {
+          console.error('Erreur de polling:', error);
+        }
+      }, 3000);
+    }
+
+    function stopVideoPolling() {
+      if (videoPollingInterval) {
+        clearInterval(videoPollingInterval);
+        videoPollingInterval = null;
+      }
+    }
+
+    // Copier dans le presse-papiers
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        event.target.textContent = '✓ Copié!';
+        setTimeout(() => {
+          event.target.textContent = '📋 Copier';
+        }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>
