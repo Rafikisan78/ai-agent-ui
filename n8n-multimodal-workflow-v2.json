@@ -1,0 +1,432 @@
+{
+  "name": "AI Agent Multimodal - Production Ready",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-agent-fiable",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "id": "webhook-node",
+      "name": "Webhook",
+      "webhookId": "ai-agent-fiable"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validation et normalisation de l'entrée\nconst input = $input.item.json;\n\n// Supporter plusieurs formats d'entrée\nlet body = input.body || input;\nlet message = body.message || input.message;\n\n// Validation\nif (!message || typeof message !== 'string' || message.trim() === '') {\n  return {\n    json: {\n      success: false,\n      error: 'Le champ \"message\" est requis et doit être une chaîne de caractères',\n      errorCode: 'MISSING_MESSAGE',\n      timestamp: new Date().toISOString(),\n      _validationFailed: true\n    }\n  };\n}\n\n// Normaliser les données\nreturn {\n  json: {\n    message: message.trim(),\n    timestamp: body.timestamp || new Date().toISOString(),\n    file: body.file || input.file || null,\n    metadata: body.metadata || {},\n    isValid: true\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "validate-input",
+      "name": "Validate & Normalize Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "validation-check",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "input-valid-check",
+      "name": "Is Valid?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Détection intelligente du type d'entrée\nconst input = $input.item.json;\nconst message = input.message || '';\n\n// Variables de sortie\nlet inputType = 'text';\nlet command = null;\nlet prompt = message;\n\n// Détection des commandes\nconst imagePatterns = ['/image ', '/img ', '/gen '];\nconst searchPatterns = ['/search ', '/find ', '/cherche '];\nconst videoPatterns = ['/video ', '/vid '];\n\nfor (const pattern of imagePatterns) {\n  if (message.toLowerCase().startsWith(pattern)) {\n    inputType = 'image-generation';\n    command = 'image';\n    prompt = message.substring(pattern.length).trim();\n    break;\n  }\n}\n\nif (inputType === 'text') {\n  for (const pattern of searchPatterns) {\n    if (message.toLowerCase().startsWith(pattern)) {\n      inputType = 'web-search';\n      command = 'search';\n      prompt = message.substring(pattern.length).trim();\n      break;\n    }\n  }\n}\n\nif (inputType === 'text') {\n  for (const pattern of videoPatterns) {\n    if (message.toLowerCase().startsWith(pattern)) {\n      inputType = 'video-generation';\n      command = 'video';\n      prompt = message.substring(pattern.length).trim();\n      break;\n    }\n  }\n}\n\n// Détection de fichier\nif (input.file) {\n  inputType = 'file-analysis';\n  command = 'analyze';\n}\n\nreturn {\n  json: {\n    ...input,\n    inputType: inputType,\n    command: command,\n    prompt: prompt,\n    originalMessage: message,\n    hasFile: !!input.file,\n    fileType: input.file?.type || null,\n    fileName: input.file?.name || null\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 180],
+      "id": "detect-type",
+      "name": "Detect Input Type"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "text-condition",
+                    "leftValue": "={{ $json.inputType }}",
+                    "rightValue": "text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "image-condition",
+                    "leftValue": "={{ $json.inputType }}",
+                    "rightValue": "image-generation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "image"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "file-condition",
+                    "leftValue": "={{ $json.inputType }}",
+                    "rightValue": "file-analysis",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "file"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "search-condition",
+                    "leftValue": "={{ $json.inputType }}",
+                    "rightValue": "web-search",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "search"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1120, 180],
+      "id": "router",
+      "name": "Router"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [1340, 60],
+      "id": "ai-agent",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "claude-sonnet-4-5-20250929",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1,
+      "position": [1340, 240],
+      "id": "claude-model",
+      "name": "Claude Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "YOUR_ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Placeholder pour génération d'images\nconst input = $input.item.json;\n\nreturn {\n  json: {\n    success: true,\n    type: 'info',\n    content: {\n      message: `Génération d'image demandée: \"${input.prompt}\". Fonctionnalité à configurer.`,\n      instructions: 'Pour activer : Ajoutez un nœud HTTP Request avec DALL-E ou Stable Diffusion API',\n      prompt: input.prompt\n    },\n    metadata: {\n      inputType: input.inputType,\n      command: input.command,\n      originalMessage: input.originalMessage\n    },\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 180],
+      "id": "image-gen",
+      "name": "Image Generation"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Placeholder pour analyse de fichiers\nconst input = $input.item.json;\n\nreturn {\n  json: {\n    success: true,\n    type: 'info',\n    content: {\n      message: `Analyse de fichier demandée: \"${input.fileName}\". Fonctionnalité à configurer.`,\n      instructions: 'Pour activer : Ajoutez GPT-4 Vision ou Claude Vision API',\n      fileName: input.fileName,\n      fileType: input.fileType\n    },\n    metadata: {\n      inputType: input.inputType,\n      command: input.command,\n      originalMessage: input.originalMessage\n    },\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300],
+      "id": "file-analysis",
+      "name": "File Analysis"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Placeholder pour recherche web\nconst input = $input.item.json;\n\nreturn {\n  json: {\n    success: true,\n    type: 'info',\n    content: {\n      message: `Recherche demandée: \"${input.prompt}\". Fonctionnalité à configurer.`,\n      instructions: 'Pour activer : Ajoutez Serper API ou Google Custom Search',\n      query: input.prompt\n    },\n    metadata: {\n      inputType: input.inputType,\n      command: input.command,\n      originalMessage: input.originalMessage\n    },\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 420],
+      "id": "web-search",
+      "name": "Web Search"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatage unifié de toutes les réponses\nconst input = $input.item.json;\n\n// Si déjà formaté correctement\nif (input.success !== undefined && input.type && input.content) {\n  return { json: input };\n}\n\n// Déterminer le type de réponse\nlet responseType = 'text';\nlet content = input.output || input.text || input.content || input;\nlet success = true;\n\n// Réponse AI Agent\nif (input.output) {\n  responseType = 'text';\n  content = input.output;\n}\n\n// Image\nif (input.imageUrl || input.image_url) {\n  responseType = 'image';\n  content = {\n    url: input.imageUrl || input.image_url,\n    description: input.description || input.prompt || 'Image générée'\n  };\n}\n\n// Vidéo\nif (input.videoUrl || input.video_url) {\n  responseType = 'video';\n  content = {\n    url: input.videoUrl || input.video_url,\n    description: input.description || input.prompt || 'Vidéo générée'\n  };\n}\n\n// Audio\nif (input.audioUrl || input.audio_url) {\n  responseType = 'audio';\n  content = {\n    url: input.audioUrl || input.audio_url,\n    description: input.description || 'Audio généré'\n  };\n}\n\n// Erreur\nif (input.type === 'error' || input.error) {\n  responseType = 'error';\n  success = false;\n  content = {\n    message: input.error || input.message || 'Erreur inconnue',\n    errorCode: input.errorCode || 'UNKNOWN_ERROR'\n  };\n}\n\nreturn {\n  json: {\n    success: success,\n    type: responseType,\n    content: content,\n    metadata: {\n      inputType: input.inputType || 'text',\n      originalMessage: input.originalMessage || input.message || '',\n      processingTime: input.processingTime || null,\n      model: input.model || 'claude-sonnet-4.5',\n      timestamp: input.timestamp || new Date().toISOString()\n    },\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 180],
+      "id": "format-response",
+      "name": "Format Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1780, 180],
+      "id": "success-response",
+      "name": "Send Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 420],
+      "id": "error-response",
+      "name": "Error Response"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate & Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Is Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Valid?": {
+      "main": [
+        [
+          {
+            "node": "Detect Input Type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Input Type": {
+      "main": [
+        [
+          {
+            "node": "Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Image Generation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "File Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Web Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Generation": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File Analysis": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Web Search": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "versionId": "production-v2",
+  "meta": {
+    "instanceId": "multimodal-production"
+  },
+  "id": "ai-agent-multimodal-v2",
+  "tags": []
+}

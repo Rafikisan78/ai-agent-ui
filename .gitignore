@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+
+# Fichiers de test avec secrets
+test-huggingface-*.js
+test-replicate-*.js

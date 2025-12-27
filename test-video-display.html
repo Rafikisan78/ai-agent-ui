@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Affichage Vidéo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    .video-section {
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 20px;
+      background: white;
+    }
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .btn-warning {
+      background: #ed8936;
+      color: white;
+    }
+    .btn-warning:hover {
+      background: #dd6b20;
+    }
+  </style>
+</head>
+<body>
+  <div class="video-section">
+    <h2 style="color: #667eea; margin-bottom: 15px;">🎬 Test Affichage Vidéo</h2>
+
+    <!-- Paramètres -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 15px; padding: 15px; background: #f7fafc; border-radius: 6px;">
+      <div>
+        <label style="display: block; font-size: 12px; color: #4a5568; margin-bottom: 5px;">⏱️ Durée</label>
+        <select style="width: 100%; padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px;">
+          <option>5 secondes</option>
+        </select>
+      </div>
+      <div>
+        <label style="display: block; font-size: 12px; color: #4a5568; margin-bottom: 5px;">📐 Format</label>
+        <select style="width: 100%; padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px;">
+          <option>16:9</option>
+        </select>
+      </div>
+      <div>
+        <label style="display: block; font-size: 12px; color: #4a5568; margin-bottom: 5px;">🎨 FPS</label>
+        <select style="width: 100%; padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px;">
+          <option>24 FPS</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn btn-warning" onclick="simulateVideoResponse()">▶️ Simuler Réponse Vidéo</button>
+
+    <!-- Zone de réponse vidéo - JUSTE SOUS LES PARAMÈTRES -->
+    <div id="videoResponseBox" style="display: none; margin: 15px 0; padding: 15px; background: #fff5f5; border-left: 4px solid #ed8936; border-radius: 8px;">
+      <h4 style="color: #ed8936; margin-bottom: 10px;">🎬 Vidéo Générée</h4>
+      <video id="videoResponseContent" controls style="max-width: 100%; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none;">
+        <source src="" type="video/mp4">
+        Votre navigateur ne supporte pas la lecture vidéo.
+      </video>
+      <div id="videoResponseText" style="color: #2d3748; margin-top: 10px; font-size: 14px;"></div>
+    </div>
+  </div>
+
+  <script>
+    function simulateVideoResponse() {
+      // URL vidéo de démonstration (Big Buck Bunny - vidéo de test gratuite)
+      const videoUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+
+      // Simuler la réponse du webhook
+      const mockResponse = {
+        type: 'video',
+        video_url: videoUrl,
+        status: 'succeeded',
+        response: 'Vidéo générée avec succès'
+      };
+
+      // Afficher la vidéo
+      displayVideo(mockResponse);
+    }
+
+    function displayVideo(data) {
+      const videoResponseBox = document.getElementById('videoResponseBox');
+      const videoResponseContent = document.getElementById('videoResponseContent');
+      const videoResponseText = document.getElementById('videoResponseText');
+
+      // Réinitialiser
+      videoResponseContent.style.display = 'none';
+      videoResponseText.textContent = '';
+      videoResponseBox.style.display = 'none';
+
+      if (data.video_url) {
+        // Déterminer le type de vidéo
+        const videoUrl = data.video_url;
+        let videoType = 'video/mp4';
+        if (videoUrl.includes('.webm')) {
+          videoType = 'video/webm';
+        } else if (videoUrl.includes('.mov')) {
+          videoType = 'video/quicktime';
+        }
+
+        const sourceElement = videoResponseContent.querySelector('source');
+        sourceElement.src = videoUrl;
+        sourceElement.type = videoType;
+        videoResponseContent.load();
+        videoResponseContent.style.display = 'block';
+        videoResponseBox.style.display = 'block';
+
+        if (data.response) {
+          videoResponseText.textContent = data.response + (data.status ? ` (Statut: ${data.status})` : '');
+        }
+
+        console.log('✅ Vidéo affichée sous les paramètres');
+      }
+    }
+  </script>
+</body>
+</html>

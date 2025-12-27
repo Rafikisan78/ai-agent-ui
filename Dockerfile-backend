@@ -1,0 +1,16 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copier package.json et installer les dépendances
+COPY package.json ./
+RUN npm install --production
+
+# Copier le code source
+COPY server.js ./
+
+# Exposer le port 3100
+EXPOSE 80
+
+# Démarrer le serveur
+CMD ["node", "server.js"]

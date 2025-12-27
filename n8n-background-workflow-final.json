@@ -1,0 +1,161 @@
+{
+  "name": "Background Video Generator - Final",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "video-bg-process",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "id": "webhook-bg",
+      "name": "Webhook BG",
+      "webhookId": "video-bg-process"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.replicate.com/v1/predictions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"version\": \"9ca6c6d8e3bb2a954e5cb2f68aeec48d4e70aed4c7e3b6e7dbd741aae6ad0e85\",\n  \"input\": {\n    \"prompt\": \"{{ $json.prompt }}\",\n    \"num_frames\": 24,\n    \"num_inference_steps\": 25\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "id": "replicate-start",
+      "name": "Replicate Start",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_REPLICATE_CREDENTIAL",
+          "name": "Replicate API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "seconds"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [680, 300],
+      "id": "wait-10s",
+      "name": "Wait 10s"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.urls.get }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300],
+      "id": "check-status",
+      "name": "Check Status",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_REPLICATE_CREDENTIAL",
+          "name": "Replicate API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "succeeded",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "id": "is-ready",
+      "name": "Is Ready?"
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1120, 480],
+      "id": "wait-retry",
+      "name": "Wait 5s Retry"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "video_tasks",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "task_id": "={{ $('Webhook BG').item.json.taskId }}",
+            "prompt": "={{ $('Webhook BG').item.json.prompt }}",
+            "video_url": "={{ $json.output?.[0] || $json.output }}",
+            "status": "completed",
+            "completed_at": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 300],
+      "id": "save-to-supabase",
+      "name": "Save to Supabase",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIAL",
+          "name": "Supabase"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook BG": {
+      "main": [[{"node": "Replicate Start", "type": "main", "index": 0}]]
+    },
+    "Replicate Start": {
+      "main": [[{"node": "Wait 10s", "type": "main", "index": 0}]]
+    },
+    "Wait 10s": {
+      "main": [[{"node": "Check Status", "type": "main", "index": 0}]]
+    },
+    "Check Status": {
+      "main": [[{"node": "Is Ready?", "type": "main", "index": 0}]]
+    },
+    "Is Ready?": {
+      "main": [
+        [{"node": "Save to Supabase", "type": "main", "index": 0}],
+        [{"node": "Wait 5s Retry", "type": "main", "index": 0}]
+      ]
+    },
+    "Wait 5s Retry": {
+      "main": [[{"node": "Check Status", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "background-video-generator-final"
+}

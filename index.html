@@ -415,7 +415,7 @@
 
   <script>
     // Configuration
-    const WEBHOOK_URL = 'https://n8n.srv766650.hstgr.cloud/webhook/ai-agent-fiable';
+    const BACKEND_API_URL = 'https://api.ai-agent.goungwamwe.com/api/webhook';
 
     let videoPollingInterval = null;
     let videoPollingAttempts = 0;
@@ -455,7 +455,7 @@
       showLoading('text-result');
 
       try {
-        const response = await fetch(WEBHOOK_URL, {
+        const response = await fetch(BACKEND_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -490,7 +490,7 @@
       showLoading('image-result');
 
       try {
-        const response = await fetch(WEBHOOK_URL, {
+        const response = await fetch(BACKEND_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -544,7 +544,7 @@
       showLoading('video-result');
 
       try {
-        const response = await fetch(WEBHOOK_URL, {
+        const response = await fetch(BACKEND_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -635,7 +635,7 @@
         }
 
         try {
-          const response = await fetch(WEBHOOK_URL, {
+          const response = await fetch(BACKEND_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

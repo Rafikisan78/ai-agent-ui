@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test N8N Trigger Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1e293b;
+            color: white;
+        }
+        .test-section {
+            background: #334155;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid #475569;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background: #065f46;
+            border: 1px solid #10b981;
+        }
+        .error {
+            background: #7f1d1d;
+            border: 1px solid #ef4444;
+        }
+        .info {
+            background: #1e3a8a;
+            border: 1px solid #3b82f6;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        pre {
+            background: #1e293b;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Tests N8N Trigger Interface</h1>
+
+    <div class="test-section">
+        <h2>1. Test de connexion au serveur</h2>
+        <button onclick="testServerConnection()">Tester la connexion</button>
+        <div id="server-test-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Test de l'API N8N Webhook</h2>
+        <button onclick="testWebhook()">Tester le webhook</button>
+        <div id="webhook-test-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Test complet d'envoi de message</h2>
+        <input type="text" id="test-message" placeholder="Message de test" style="width: 100%; padding: 10px; margin: 10px 0; border-radius: 4px; border: 1px solid #475569; background: #1e293b; color: white;" value="Test automatique depuis la page de test">
+        <button onclick="testFullWorkflow()">Envoyer le test</button>
+        <div id="full-test-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Ouvrir l'application principale</h2>
+        <button onclick="window.open('http://localhost:3000', '_blank')">Ouvrir l'interface N8N</button>
+        <div class="info test-result">
+            <strong>Note:</strong> L'application devrait être accessible sur <a href="http://localhost:3000" target="_blank" style="color: #60a5fa;">http://localhost:3000</a>
+        </div>
+    </div>
+
+    <script>
+        const WEBHOOK_URL = 'https://n8n.srv766650.hstgr.cloud/webhook-test/c84553ce-c421-457b-9fb5-c91481a86efe';
+        const APP_URL = 'http://localhost:3000';
+
+        async function testServerConnection() {
+            const resultDiv = document.getElementById('server-test-result');
+            resultDiv.innerHTML = '<div class="info test-result">Test en cours...</div>';
+
+            try {
+                const response = await fetch(APP_URL);
+                const html = await response.text();
+
+                if (response.ok && html.includes('root')) {
+                    resultDiv.innerHTML = `
+                        <div class="success test-result">
+                            ✅ <strong>Succès!</strong> Le serveur répond correctement sur ${APP_URL}
+                            <br>Status HTTP: ${response.status}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error test-result">
+                            ❌ <strong>Erreur:</strong> Réponse inattendue du serveur
+                            <br>Status: ${response.status}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error test-result">
+                        ❌ <strong>Erreur de connexion:</strong> ${error.message}
+                        <br>Vérifiez que le serveur de développement est lancé avec <code>npm run dev</code>
+                    </div>
+                `;
+            }
+        }
+
+        async function testWebhook() {
+            const resultDiv = document.getElementById('webhook-test-result');
+            resultDiv.innerHTML = '<div class="info test-result">Test du webhook N8N en cours...</div>';
+
+            try {
+                const payload = {
+                    message: "Test automatique depuis la page de test",
+                    timestamp: new Date().toISOString()
+                };
+
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success test-result">
+                            ✅ <strong>Webhook fonctionnel!</strong>
+                            <br>Status: ${response.status}
+                            <br>Réponse:
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error test-result">
+                            ❌ <strong>Erreur HTTP:</strong> ${response.status} ${response.statusText}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error test-result">
+                        ❌ <strong>Erreur webhook:</strong> ${error.message}
+                        <br>Vérifiez l'URL du webhook N8N: <code>${WEBHOOK_URL}</code>
+                    </div>
+                `;
+            }
+        }
+
+        async function testFullWorkflow() {
+            const resultDiv = document.getElementById('full-test-result');
+            const message = document.getElementById('test-message').value;
+
+            if (!message.trim()) {
+                resultDiv.innerHTML = '<div class="error test-result">⚠️ Veuillez entrer un message</div>';
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="info test-result">⏳ Test du workflow complet en cours...</div>';
+
+            try {
+                // Simuler ce que fait l'application
+                const payload = {
+                    message: message.trim(),
+                    timestamp: new Date().toISOString()
+                };
+
+                const startTime = Date.now();
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const endTime = Date.now();
+                const duration = endTime - startTime;
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success test-result">
+                            ✅ <strong>Test complet réussi!</strong>
+                            <br>⏱️ Temps de réponse: ${duration}ms
+                            <br>📤 Message envoyé: "${message}"
+                            <br>📥 Réponse N8N:
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error test-result">
+                            ❌ <strong>Erreur:</strong> ${response.status} ${response.statusText}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error test-result">
+                        ❌ <strong>Erreur:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Test automatique au chargement
+        window.addEventListener('load', () => {
+            console.log('🧪 Page de test chargée');
+            console.log('📍 URL de l\'application:', APP_URL);
+            console.log('🔗 URL du webhook N8N:', WEBHOOK_URL);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,318 @@
+{
+  "name": "AI Agent Fiable - Replicate avec Gestion d'Erreurs",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-agent-fiable",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "ai-agent-fiable"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.message }}",
+              "operation": "startsWith",
+              "value2": "\\image"
+            }
+          ]
+        }
+      },
+      "id": "if-image",
+      "name": "IF Image",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "prompt",
+              "value": "={{ $json.message.replace('\\\\image ', '').trim() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-prompt",
+      "name": "Extract Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://api.replicate.com/v1/predictions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "wait"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "version",
+              "value": "5599ed30703defd1d160a25a63321b4dec97101d98b4674bcc56e41f62f35637"
+            },
+            {
+              "name": "input",
+              "value": "={{ { \"prompt\": $json.prompt, \"num_inference_steps\": 4, \"guidance_scale\": 0 } }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "redirect": {
+            "redirect": {}
+          },
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "replicate-request",
+      "name": "Replicate API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 200],
+      "alwaysOutputData": true,
+      "continueOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "Replicate API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log la réponse Replicate pour débogage\nconst data = $input.all()[0].json;\n\nconsole.log(\"🎨 REPLICATE RESPONSE:\", JSON.stringify(data, null, 2));\nconsole.log(\"📊 Status:\", data.status);\nconsole.log(\"🖼️  Output:\", data.output);\nconsole.log(\"❌ Error:\", data.error);\n\nreturn $input.all();"
+      },
+      "id": "log-replicate",
+      "name": "Log Replicate Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "value2": "succeeded"
+            }
+          ]
+        }
+      },
+      "id": "check-success",
+      "name": "Check Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ {\n  \"type\": \"image\",\n  \"content\": \"Image générée avec succès\",\n  \"image_url\": $json.output[0],\n  \"metadata\": {\n    \"predictionId\": $json.id,\n    \"model\": $json.model,\n    \"status\": $json.status,\n    \"metrics\": $json.metrics\n  },\n  \"success\": true\n} }}",
+        "options": {}
+      },
+      "id": "format-success",
+      "name": "Format Success Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [1450, 100]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ {\n  \"type\": \"image\",\n  \"content\": $json.error || ($json.detail && typeof $json.detail === 'string' ? $json.detail : 'Erreur lors de la génération. Rate limit atteint ou crédits insuffisants.'),\n  \"image_url\": null,\n  \"metadata\": {\n    \"status\": $json.status || 'failed',\n    \"error\": $json.error || $json.detail,\n    \"message\": \"Ajoutez des crédits sur https://replicate.com/account/billing ou attendez 15 secondes\"\n  },\n  \"success\": false\n} }}",
+        "options": {}
+      },
+      "id": "format-error",
+      "name": "Format Error Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "merge-responses",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [1650, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Wrap response dans un array comme attendu par le frontend\nconst response = $input.all()[0].json;\n\nconsole.log(\"📤 FINAL RESPONSE:\", JSON.stringify([response], null, 2));\n\nreturn [\n  {\n    json: [response]\n  }\n];"
+      },
+      "id": "wrap-array",
+      "name": "Wrap in Array",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1850, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2050, 200]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "IF Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Image": {
+      "main": [
+        [
+          {
+            "node": "Extract Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Prompt": {
+      "main": [
+        [
+          {
+            "node": "Replicate API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replicate API": {
+      "main": [
+        [
+          {
+            "node": "Log Replicate Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Replicate Response": {
+      "main": [
+        [
+          {
+            "node": "Check Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Success": {
+      "main": [
+        [
+          {
+            "node": "Format Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Success Response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error Response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Wrap in Array",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap in Array": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-12-25T00:00:00.000Z",
+  "versionId": "1"
+}

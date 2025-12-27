@@ -1,0 +1,167 @@
+{
+  "name": "AI Agent - Main (FINAL)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-agent-fiable",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "ai-agent-fiable"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.message }}",
+              "operation": "contains",
+              "value2": "/video"
+            }
+          ]
+        }
+      },
+      "id": "if-video-1",
+      "name": "IF /video",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.replicate.com/v1/predictions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Token VOTRE_TOKEN_REPLICATE_ICI"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"version\": \"9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351\",\n  \"input\": {\n    \"prompt\": \"{{ $json.body.message.replace('/video', '').trim() }}\",\n    \"num_frames\": 24,\n    \"num_inference_steps\": 50\n  }\n}",
+        "options": {}
+      },
+      "id": "replicate-1",
+      "name": "Créer Prédiction Replicate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [690, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://nivbykzatzugwslnodqi.supabase.co/rest/v1/video_tasks",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_1zpjTYfnH8i2lfX3kcinFQ_l7TD20AO"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_1zpjTYfnH8i2lfX3kcinFQ_l7TD20AO"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"task_id\": \"{{ $('Créer Prédiction Replicate').item.json.id }}\",\n  \"prompt\": \"{{ $('Webhook').item.json.body.message }}\",\n  \"status\": \"processing\",\n  \"video_url\": null\n}",
+        "options": {}
+      },
+      "id": "supabase-insert-1",
+      "name": "INSERT Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [910, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"type\": \"video\",\n  \"content\": {\n    \"message\": \"Vidéo en cours de génération...\"\n  },\n  \"metadata\": {\n    \"taskId\": \"{{ $('Créer Prédiction Replicate').item.json.id }}\",\n    \"status\": \"processing\",\n    \"inputType\": \"video-generation\",\n    \"model\": \"replicate\"\n  }\n}",
+        "options": {}
+      },
+      "id": "respond-1",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1130, 200]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "IF /video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF /video": {
+      "main": [
+        [
+          {
+            "node": "Créer Prédiction Replicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Créer Prédiction Replicate": {
+      "main": [
+        [
+          {
+            "node": "INSERT Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INSERT Supabase": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-24T03:00:00.000Z",
+  "versionId": "1"
+}

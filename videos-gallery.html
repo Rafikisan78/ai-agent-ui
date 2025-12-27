@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galerie de Vidéos Générées</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .stats {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            color: white;
+            text-align: center;
+        }
+
+        .refresh-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 0 auto;
+            display: block;
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+
+        .videos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .video-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transition: transform 0.3s;
+        }
+
+        .video-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .video-container {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            position: relative;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .video-info {
+            padding: 1.5rem;
+        }
+
+        .video-prompt {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .video-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
+        }
+
+        .video-date {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .video-id {
+            font-size: 0.75rem;
+            color: #999;
+            font-family: 'Courier New', monospace;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.2rem;
+            padding: 2rem;
+        }
+
+        .error {
+            background: #f44336;
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .download-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .download-btn:hover {
+            background: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Galerie de Vidéos Générées par IA</h1>
+
+        <div class="stats" id="stats">
+            <p>Chargement...</p>
+        </div>
+
+        <button class="refresh-btn" onclick="loadVideos()">🔄 Actualiser</button>
+
+        <div id="error"></div>
+
+        <div class="videos-grid" id="videosGrid">
+            <div class="loading">Chargement des vidéos...</div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://nivbykzatzugwslnodqi.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_1zpjTYfnH8i2lfX3kcinFQ_l7TD20AO';
+
+        async function loadVideos() {
+            const videosGrid = document.getElementById('videosGrid');
+            const errorDiv = document.getElementById('error');
+            const statsDiv = document.getElementById('stats');
+
+            videosGrid.innerHTML = '<div class="loading">Chargement des vidéos...</div>';
+            errorDiv.innerHTML = '';
+
+            try {
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/video_tasks?status=eq.completed&order=completed_at.desc&select=*`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': `Bearer ${SUPABASE_KEY}`
+                        }
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+                }
+
+                const videos = await response.json();
+
+                // Mise à jour des stats
+                statsDiv.innerHTML = `
+                    <h2>📊 Statistiques</h2>
+                    <p style="font-size: 1.5rem; margin-top: 0.5rem;">
+                        ${videos.length} vidéo(s) générée(s)
+                    </p>
+                `;
+
+                if (videos.length === 0) {
+                    videosGrid.innerHTML = `
+                        <div class="loading">
+                            Aucune vidéo disponible pour le moment.<br>
+                            Lancez une génération depuis l'interface principale!
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Affichage des vidéos
+                videosGrid.innerHTML = videos.map(video => `
+                    <div class="video-card">
+                        <div class="video-container">
+                            <video controls preload="metadata">
+                                <source src="${video.video_url}" type="video/mp4">
+                                Votre navigateur ne supporte pas la vidéo.
+                            </video>
+                        </div>
+                        <div class="video-info">
+                            <div class="video-prompt">${video.prompt}</div>
+                            <div class="video-meta">
+                                <div class="video-date">
+                                    📅 ${new Date(video.completed_at).toLocaleString('fr-FR')}
+                                </div>
+                                <a href="${video.video_url}" download class="download-btn">
+                                    ⬇️ Télécharger
+                                </a>
+                            </div>
+                            <div class="video-id">ID: ${video.task_id}</div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Erreur:', error);
+                errorDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Erreur lors du chargement: ${error.message}
+                    </div>
+                `;
+                videosGrid.innerHTML = '';
+            }
+        }
+
+        // Charger les vidéos au démarrage
+        loadVideos();
+
+        // Auto-refresh toutes les 30 secondes
+        setInterval(loadVideos, 30000);
+    </script>
+</body>
+</html>

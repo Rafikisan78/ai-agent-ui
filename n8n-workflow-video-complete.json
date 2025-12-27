@@ -1,0 +1,422 @@
+{
+  "name": "AI Agent - Video Generation avec Polling Replicate",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-agent-fiable",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "ai-agent-fiable"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.message }}",
+              "operation": "contains",
+              "value2": "/video"
+            }
+          ]
+        }
+      },
+      "id": "detect-video",
+      "name": "Détecter /video",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.replicate.com/v1/predictions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Token VOTRE_TOKEN_REPLICATE_ICI"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "version",
+              "value": "9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351"
+            },
+            {
+              "name": "input",
+              "value": "={{ { \"prompt\": $('Webhook').item.json.body.message.replace('/video', '').trim(), \"num_frames\": 24, \"num_inference_steps\": 50 } }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "create-prediction",
+      "name": "Créer Prédiction Replicate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "serviceAccountEmail": "https://qrbtxbwhbjvytsfsazlg.supabase.co",
+        "operation": "insert",
+        "tableId": "video_tasks",
+        "columnsUi": {
+          "columnValues": [
+            {
+              "column": "task_id",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "column": "prompt",
+              "value": "={{ $('Webhook').item.json.body.message }}"
+            },
+            {
+              "column": "status",
+              "value": "processing"
+            },
+            {
+              "column": "video_url",
+              "value": ""
+            }
+          ]
+        }
+      },
+      "id": "insert-supabase",
+      "name": "INSERT Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [850, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"type\": \"video\", \"content\": { \"message\": \"Vidéo en cours de génération...\" }, \"metadata\": { \"taskId\": $('Créer Prédiction Replicate').item.json.id, \"status\": \"processing\", \"inputType\": \"video-generation\", \"model\": \"replicate\" } } }}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "amount": 15,
+        "unit": "seconds"
+      },
+      "id": "wait-initial",
+      "name": "Wait 15s (début)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "loop-start",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.replicate.com/v1/predictions/{{ $('Créer Prédiction Replicate').item.json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Token VOTRE_TOKEN_REPLICATE_ICI"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-status",
+      "name": "Vérifier Statut Replicate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1650, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "operation": "equals",
+              "value2": "succeeded"
+            }
+          ]
+        }
+      },
+      "id": "check-succeeded",
+      "name": "Status = succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1850, 200]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "tableId": "video_tasks",
+        "filterType": "manual",
+        "matchBy": "task_id",
+        "value": "={{ $('Créer Prédiction Replicate').item.json.id }}",
+        "columnsUi": {
+          "columnValues": [
+            {
+              "column": "status",
+              "value": "completed"
+            },
+            {
+              "column": "video_url",
+              "value": "={{ $json.output[0] || $json.output }}"
+            },
+            {
+              "column": "completed_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "update-success",
+      "name": "UPDATE Supabase (Success)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2050, 100],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "operation": "equals",
+              "value2": "failed"
+            }
+          ]
+        }
+      },
+      "id": "check-failed",
+      "name": "Status = failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "tableId": "video_tasks",
+        "filterType": "manual",
+        "matchBy": "task_id",
+        "value": "={{ $('Créer Prédiction Replicate').item.json.id }}",
+        "columnsUi": {
+          "columnValues": [
+            {
+              "column": "status",
+              "value": "failed"
+            },
+            {
+              "column": "completed_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "update-failed",
+      "name": "UPDATE Supabase (Failed)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2250, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 20,
+        "unit": "seconds"
+      },
+      "id": "wait-loop",
+      "name": "Wait 20s (loop)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [2250, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Détecter /video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Détecter /video": {
+      "main": [
+        [
+          {
+            "node": "Créer Prédiction Replicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Créer Prédiction Replicate": {
+      "main": [
+        [
+          {
+            "node": "INSERT Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INSERT Supabase": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait 15s (début)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 15s (début)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Vérifier Statut Replicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vérifier Statut Replicate": {
+      "main": [
+        [
+          {
+            "node": "Status = succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status = succeeded?": {
+      "main": [
+        [
+          {
+            "node": "UPDATE Supabase (Success)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Status = failed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status = failed?": {
+      "main": [
+        [
+          {
+            "node": "UPDATE Supabase (Failed)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 20s (loop)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 20s (loop)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-24T00:00:00.000Z",
+  "versionId": "1"
+}

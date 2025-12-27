@@ -1,0 +1,257 @@
+{
+  "name": "AI Agent - Async Video Generation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-agent-fiable",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "id": "webhook-node",
+      "name": "Webhook",
+      "webhookId": "ai-agent-fiable"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\nlet body = input.body || input;\nlet message = body.message || input.message;\n\nif (!message || typeof message !== 'string' || message.trim() === '') {\n  return {\n    json: {\n      success: false,\n      error: 'Le champ \"message\" est requis',\n      errorCode: 'MISSING_MESSAGE',\n      timestamp: new Date().toISOString(),\n      _validationFailed: true\n    }\n  };\n}\n\nreturn {\n  json: {\n    message: message.trim(),\n    timestamp: body.timestamp || new Date().toISOString(),\n    isValid: true\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "validate-input",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\nconst message = input.message || '';\n\nlet inputType = 'text';\nlet command = null;\nlet prompt = message;\n\nconst imagePatterns = ['/image ', '/img '];\nconst videoPatterns = ['/video ', '/vid '];\n\nfor (const pattern of imagePatterns) {\n  if (message.toLowerCase().startsWith(pattern)) {\n    inputType = 'image-generation';\n    command = 'image';\n    prompt = message.substring(pattern.length).trim();\n    break;\n  }\n}\n\nif (inputType === 'text') {\n  for (const pattern of videoPatterns) {\n    if (message.toLowerCase().startsWith(pattern)) {\n      inputType = 'video-generation';\n      command = 'video';\n      prompt = message.substring(pattern.length).trim();\n      break;\n    }\n  }\n}\n\nreturn {\n  json: {\n    ...input,\n    inputType: inputType,\n    command: command,\n    prompt: prompt,\n    originalMessage: message\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "detect-type",
+      "name": "Detect Type"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.inputType }}",
+                    "rightValue": "text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.inputType }}",
+                    "rightValue": "image-generation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "image"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.inputType }}",
+                    "rightValue": "video-generation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "video"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [900, 300],
+      "id": "router",
+      "name": "Router"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [1120, 180],
+      "id": "ai-agent",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "claude-sonnet-4-5-20250929",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1,
+      "position": [1120, 360],
+      "id": "claude-model",
+      "name": "Claude Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "YOUR_ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/generations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"dall-e-3\",\n  \"prompt\": \"{{ $json.prompt }}\",\n  \"n\": 1,\n  \"size\": \"1024x1024\",\n  \"quality\": \"standard\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300],
+      "id": "dalle-request",
+      "name": "DALL-E Request",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\nconst previousData = $('Detect Type').item.json;\n\nconst imageUrl = input.data?.[0]?.url || null;\nconst revisedPrompt = input.data?.[0]?.revised_prompt || previousData.prompt;\n\nif (!imageUrl) {\n  return {\n    json: {\n      success: false,\n      type: 'error',\n      content: {\n        message: 'Erreur génération image',\n        error: input.error?.message || 'URL non trouvée'\n      },\n      timestamp: new Date().toISOString()\n    }\n  };\n}\n\nreturn {\n  json: {\n    success: true,\n    type: 'image',\n    content: {\n      url: imageUrl,\n      description: revisedPrompt,\n      originalPrompt: previousData.prompt\n    },\n    metadata: {\n      inputType: previousData.inputType,\n      model: 'dall-e-3'\n    },\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300],
+      "id": "format-dalle",
+      "name": "Format DALL-E"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Génération asynchrone : retourner un message immédiat\nconst previousData = $('Detect Type').item.json;\nconst taskId = `video_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n\nreturn {\n  json: {\n    success: true,\n    type: 'info',\n    content: {\n      message: `🎬 Génération vidéo en cours...`,\n      taskId: taskId,\n      prompt: previousData.prompt,\n      estimatedTime: '30-60 secondes',\n      instructions: 'Votre vidéo est en cours de génération. Vérifiez l\\'historique dans quelques instants.'\n    },\n    metadata: {\n      inputType: previousData.inputType,\n      command: previousData.command,\n      originalMessage: previousData.originalMessage,\n      taskId: taskId,\n      status: 'processing'\n    },\n    timestamp: new Date().toISOString(),\n    // Données pour trigger BG workflow\n    webhookUrl: 'https://n8n.srv766650.hstgr.cloud/webhook-test/video-bg-process',\n    taskId: taskId,\n    prompt: previousData.prompt\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 420],
+      "id": "video-async-response",
+      "name": "Video Async Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\n\n// Déclencher le workflow background (fire-and-forget)\ntry {\n  fetch(input.webhookUrl, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({\n      taskId: input.taskId,\n      prompt: input.prompt\n    })\n  }).catch(() => {}); // Ignorer les erreurs\n} catch (e) {\n  // Ignorer les erreurs de fetch\n}\n\n// Retourner les données originales pour Format Response\nreturn { json: input };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 420],
+      "id": "trigger-bg-workflow",
+      "name": "Trigger BG Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\n\nif (input.success !== undefined && input.type && input.content) {\n  return { json: input };\n}\n\nlet responseType = 'text';\nlet content = input.output || input.text || input.content || input;\nlet success = true;\n\nif (input.output) {\n  responseType = 'text';\n  content = input.output;\n}\n\nreturn {\n  json: {\n    success: success,\n    type: responseType,\n    content: content,\n    metadata: {\n      inputType: input.inputType || 'text',\n      model: input.model || 'claude-sonnet-4.5'\n    },\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300],
+      "id": "format-response",
+      "name": "Format Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1780, 300],
+      "id": "send-response",
+      "name": "Send Response"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "Validate Input", "type": "main", "index": 0}]]
+    },
+    "Validate Input": {
+      "main": [[{"node": "Detect Type", "type": "main", "index": 0}]]
+    },
+    "Detect Type": {
+      "main": [[{"node": "Router", "type": "main", "index": 0}]]
+    },
+    "Router": {
+      "main": [
+        [{"node": "AI Agent", "type": "main", "index": 0}],
+        [{"node": "DALL-E Request", "type": "main", "index": 0}],
+        [{"node": "Video Async Response", "type": "main", "index": 0}]
+      ]
+    },
+    "AI Agent": {
+      "main": [[{"node": "Format Response", "type": "main", "index": 0}]]
+    },
+    "DALL-E Request": {
+      "main": [[{"node": "Format DALL-E", "type": "main", "index": 0}]]
+    },
+    "Format DALL-E": {
+      "main": [[{"node": "Format Response", "type": "main", "index": 0}]]
+    },
+    "Video Async Response": {
+      "main": [[{"node": "Trigger BG Workflow", "type": "main", "index": 0}]]
+    },
+    "Trigger BG Workflow": {
+      "main": [[{"node": "Format Response", "type": "main", "index": 0}]]
+    },
+    "Format Response": {
+      "main": [[{"node": "Send Response", "type": "main", "index": 0}]]
+    },
+    "Claude Model": {
+      "ai_languageModel": [[{"node": "AI Agent", "type": "ai_languageModel", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "async-video-workflow",
+  "tags": []
+}
